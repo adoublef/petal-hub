@@ -1,0 +1,15 @@
+apiVersion: 1
+
+datasources:
+  - name: prometheus
+    orgId: 1
+    type: prometheus
+    url: http://prometheus:9090
+    isDefault: true
+
+  - name: myinfluxdb
+    type: influxdb
+    access: proxy
+    database: k6
+    orgId: 1
+    url: http://influxdb:8086
