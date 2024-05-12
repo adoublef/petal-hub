@@ -25,16 +25,16 @@ func Test_DB_SetBody(t *testing.T) {
 		tid, err := db.SetTodo(context.TODO(), title)
 		is.NoErr(err)
 
-		err = db.SetBody(context.TODO(), "Hello, World!", tid)
+		err = db.SetBody(context.TODO(), "Hello, World!", tid, 0)
 		is.NoErr(err)
 
-		found, err := db.Todo(context.TODO(), tid)
+		found, _, err := db.Todo(context.TODO(), tid)
 		is.NoErr(err)
 
 		is.Equal(found.Body, "Hello, World!")
 	}))
 
-	t.Run("Err", run(func(t *testing.T, db *DB) {
+	t.Run("NotFound", run(func(t *testing.T, db *DB) {
 		is := is.NewRelaxed(t)
 
 		// inputs
@@ -45,7 +45,7 @@ func Test_DB_SetBody(t *testing.T) {
 		_, err := db.SetTodo(context.TODO(), title)
 		is.NoErr(err) // added an new todo item
 
-		err = db.SetBody(context.TODO(), "Hello, World!", uuid.New())
+		err = db.SetBody(context.TODO(), "Hello, World!", uuid.New(), 0)
 		is.Err(err, todo.ErrNotFound)
 	}))
 }
@@ -62,21 +62,36 @@ func Test_DB_Check(t *testing.T) {
 		tid, err := db.SetTodo(context.TODO(), title)
 		is.NoErr(err)
 
-		err = db.Check(context.TODO(), tid)
-		is.NoErr(err) // Todo.Completed = true
+		err = db.Check(context.TODO(), tid, 0) // v=0
+		is.NoErr(err)                          // Todo.Completed = true
 
-		found, err := db.Todo(context.TODO(), tid)
+		found, v, err := db.Todo(context.TODO(), tid)
 		is.NoErr(err)
 
 		is.Equal(found.Completed, true)
 
-		err = db.Check(context.TODO(), tid)
+		err = db.Check(context.TODO(), tid, v)
 		is.NoErr(err) // Todo.Completed = false
 
-		found, err = db.Todo(context.TODO(), tid)
+		found, _, err = db.Todo(context.TODO(), tid)
 		is.NoErr(err)
 
 		is.Equal(found.Completed, false)
+	}))
+
+	t.Run("NotFound", run(func(t *testing.T, db *DB) {
+		is := is.NewRelaxed(t)
+
+		// inputs
+		var (
+			title text.Title = "Learning Go!"
+		)
+
+		tid, err := db.SetTodo(context.TODO(), title)
+		is.NoErr(err)
+
+		err = db.Check(context.TODO(), tid, 1) // v=0
+		is.Err(err, todo.ErrNotFound)
 	}))
 }
 
@@ -92,11 +107,11 @@ func Test_DB_Todo(t *testing.T) {
 		tid, err := db.SetTodo(context.TODO(), title)
 		is.NoErr(err) // added an new todo item
 
-		_, err = db.Todo(context.TODO(), tid)
+		_, _, err = db.Todo(context.TODO(), tid)
 		is.NoErr(err)
 	}))
 
-	t.Run("Err", run(func(t *testing.T, db *DB) {
+	t.Run("NotFound", run(func(t *testing.T, db *DB) {
 		is := is.NewRelaxed(t)
 
 		// inputs
@@ -107,7 +122,7 @@ func Test_DB_Todo(t *testing.T) {
 		_, err := db.SetTodo(context.TODO(), title)
 		is.NoErr(err) // added an new todo item
 
-		_, err = db.Todo(context.TODO(), uuid.New())
+		_, _, err = db.Todo(context.TODO(), uuid.New())
 		is.Err(err, todo.ErrNotFound)
 	}))
 }
@@ -126,7 +141,7 @@ func Test_DB_TodoSlice(t *testing.T) {
 			is.NoErr(err)
 		}
 
-		tt, err := db.TodoSlice(context.TODO())
+		tt, err := db.Slice(context.TODO())
 		is.NoErr(err)
 
 		is.Equal(len(tt), 3)
@@ -149,7 +164,7 @@ func Test_DB_SetTodo(t *testing.T) {
 
 func run(do func(t *testing.T, db *DB)) func(*testing.T) {
 	return func(t *testing.T) {
-		db, err := Up(context.TODO(), newFilepath(t))
+		db, err := Up(context.TODO(), testFilepath(t))
 		if err != nil {
 			t.Fatalf("new db instance: %v", err)
 		}
@@ -161,21 +176,14 @@ func run(do func(t *testing.T, db *DB)) func(*testing.T) {
 	}
 }
 
-func must[T any](v T, err error) T {
-	if err != nil {
-		panic(err)
-	}
-	return v
-}
-
 func Test_Up(t *testing.T) {
 	is := is.NewRelaxed(t)
 
-	_, err := Up(context.TODO(), newFilepath(t))
+	_, err := Up(context.TODO(), testFilepath(t))
 	is.NoErr(err)
 }
 
-func newFilepath(t testing.TB) string {
+func testFilepath(t testing.TB) string {
 	t.Helper()
 
 	if os.Getenv("DEBUG") != "1" {

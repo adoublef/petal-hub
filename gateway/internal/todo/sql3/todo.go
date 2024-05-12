@@ -23,10 +23,13 @@ func TodoTo(t Todo) todo.Todo {
 	return todo.Todo{t.ID, t.Title, body, t.Completed, t.Updated.Time()}
 }
 
-func JournalOf(t todo.Todo) Todo {
-	var ptr *string
-	if t.Body != "" {
-		ptr = &t.Body
-	}
-	return Todo{t.ID, t.Title, ptr, t.Completed, julian.FromTime(t.Updated)}
+type Summary struct {
+	ID        uuid.UUID
+	Title     text.Title
+	Completed bool
+	Updated   julian.Time
+}
+
+func SummaryTo(s Summary) todo.Summary {
+	return todo.Summary{s.ID, s.Title, s.Completed, s.Updated.Time()}
 }

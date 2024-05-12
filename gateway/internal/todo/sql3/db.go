@@ -24,76 +24,84 @@ func (db *DB) SetTodo(ctx context.Context, title text.Title) (uuid.UUID, error) 
 	if err != nil {
 		return uuid.Nil, wrap(err)
 	}
-	now := julian.Now()
 	const q = `
-insert into todos (id, title, body, is_complete, updated_at)
-values (?, ?, ?, ?, ?)`
-	_, err = db.RWC.Exec(ctx, q, created, title, nil, false, now)
+insert into todos (id, title, body, is_complete, updated_at, v)
+values (?, ?, ?, ?, ?, 0)`
+	_, err = db.RWC.Exec(ctx, q, created, title, nil, false, julian.Now())
 	if err != nil {
 		return uuid.Nil, wrap(err)
 	}
 	return created, nil
 }
 
-func (db *DB) Todo(ctx context.Context, tid uuid.UUID) (todo.Todo, error) {
+func (db *DB) Todo(ctx context.Context, tid uuid.UUID) (todo.Todo, uint, error) {
 	const q = `
 select t.* from todos t where t.id = ?`
 	var found Todo
-	err := db.RWC.QueryRow(ctx, q, tid).Scan(&found.ID, &found.Title, &found.Body, &found.Completed, &found.Updated)
+	var v uint
+	err := db.RWC.QueryRow(ctx, q, tid).Scan(&found.ID, &found.Title, &found.Body, &found.Completed, &found.Updated, &v)
 	if err != nil {
-		return todo.Todo{}, wrap(err)
+		return todo.Todo{}, 0, wrap(err)
 	}
-	return TodoTo(found), nil
+	return TodoTo(found), v, nil
 }
 
-func (db *DB) Check(ctx context.Context, tid uuid.UUID) error {
+func (db *DB) Check(ctx context.Context, tid uuid.UUID, v uint) error {
 	const q = `
-update todos set is_complete = 1 - is_complete where id = ?`
-	rs, err := db.RWC.Exec(ctx, q, tid)
-	if err != nil {
-		return wrap(err)
-	}
-	if _, err := rowsAffected(rs); err != nil {
-		return wrap(err)
-	}
-	return nil
-}
-
-func (db *DB) SetBody(ctx context.Context, body string, tid uuid.UUID) error {
-	const q = `
-update todos set body = ? where id = ?`
-	rs, err := db.RWC.Exec(ctx, q, body, tid)
+update todos set 
+	is_complete = 1 - is_complete
+	, updated_at = ?
+	, v = v + 1 
+where id = ? and v = ?`
+	rs, err := db.RWC.Exec(ctx, q, julian.Now(), tid, v)
 	if err != nil {
 		return wrap(err)
 	}
 	if _, err := rowsAffected(rs); err != nil {
-		return wrap(err)
+		return err
 	}
 	return nil
 }
 
-// NOTE TodoSlice should handle pagination
-func (db *DB) TodoSlice(ctx context.Context) ([]todo.Todo, error) {
+func (db *DB) SetBody(ctx context.Context, body string, tid uuid.UUID, v uint) error {
 	const q = `
-select t.* from todos t`
+update todos set 
+	body = ?
+	, updated_at = ?
+	, v = v + 1 
+where id = ? and v = ?`
+	rs, err := db.RWC.Exec(ctx, q, body, julian.Now(), tid, v)
+	if err != nil {
+		return wrap(err)
+	}
+	if _, err := rowsAffected(rs); err != nil {
+		return err
+	}
+	return nil
+}
+
+// NOTE Slice should handle pagination
+func (db *DB) Slice(ctx context.Context) ([]todo.Summary, error) {
+	const q = `
+select t.id, t.title,  t.is_complete, t.updated_at from todos t`
 	rs, err := db.RWC.Query(ctx, q)
 	if err != nil {
 		return nil, wrap(err)
 	}
 	defer rs.Close()
-	var tt []todo.Todo
+	var ss []todo.Summary
 	for rs.Next() {
-		var t Todo
-		err := rs.Scan(&t.ID, &t.Title, &t.Body, &t.Completed, &t.Updated)
+		var s Summary
+		err := rs.Scan(&s.ID, &s.Title, &s.Completed, &s.Updated)
 		if err != nil {
 			return nil, wrap(err)
 		}
-		tt = append(tt, TodoTo(t))
+		ss = append(ss, SummaryTo(s))
 	}
 	if err := rs.Err(); err != nil {
 		return nil, wrap(err)
 	}
-	return tt, nil
+	return ss, nil
 }
 
 //go:embed all:*.up.sql
