@@ -1,0 +1,6 @@
+*
+!go.*
+!cmd
+!internal
+!net
+!text

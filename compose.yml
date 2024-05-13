@@ -5,16 +5,32 @@ networks:
   k6:
   influxdb:
 
+volumes:
+  sqlite:
+
 services:
   gateway:
     image: petal-hub/gateway:v0.1.0
     build:
       context: ./gateway
+    command: ["serve", "-dsn", "/var/lib/sqlite/todos.db"]
     ports:
       - "8080:8080"
     networks:
       - intranet
       - k6
+    volumes:
+      - sqlite:/var/lib/sqlite
+    depends_on:
+      - sqlite-migrate
+
+  sqlite-migrate:
+    image: petal-hub/gateway:v0.1.0
+    build:
+      context: ./gateway
+    command: ["migrate", "-dsn", "/var/lib/sqlite/todos.db"]
+    volumes:
+      - sqlite:/var/lib/sqlite
 
   prometheus:
     image: prom/prometheus:v2.51.1

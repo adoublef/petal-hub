@@ -6,6 +6,8 @@ import (
 
 	"github.com/google/uuid"
 	lop "github.com/samber/lo/parallel"
+	"go.adoublef.dev/sdk/net/http/httputil"
+	"go.adoublef.dev/sdk/net/http/httputil/hlog"
 	"go.petal-hub.io/gateway/internal/todo"
 	todo3 "go.petal-hub.io/gateway/internal/todo/sql3"
 	"go.petal-hub.io/gateway/text"
@@ -14,7 +16,7 @@ import (
 func Handler(todoDB *todo3.DB) http.Handler {
 	mux := http.NewServeMux()
 	applyRoutes(mux, todoDB)
-	return mux
+	return httputil.Chain(mux, hlog.Log)
 }
 
 func applyRoutes(mux *http.ServeMux, todoDB *todo3.DB) {

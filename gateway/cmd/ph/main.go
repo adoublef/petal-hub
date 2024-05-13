@@ -52,7 +52,7 @@ func serve(ctx context.Context, args []string, _ func(string) string) (err error
 
 	s := &http.Server{
 		Addr:        fmt.Sprintf(":%d", *port),
-		Handler:     handler.Handler(nil),
+		Handler:     handler.Handler(&todo3.DB{rwc}),
 		BaseContext: func(l net.Listener) context.Context { return ctx },
 
 		ReadHeaderTimeout: time.Second * 5,
