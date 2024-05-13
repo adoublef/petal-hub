@@ -19,7 +19,9 @@ func Handler(todoDB *todo3.DB) http.Handler {
 
 func applyRoutes(mux *http.ServeMux, todoDB *todo3.DB) {
 	mux.Handle("GET /{$}", http.RedirectHandler("/todo/", http.StatusFound))
+	// NOTE Go seems to allow "GET /todo" and "GET /todo/"
 	mux.HandleFunc("GET /todo/{$}", handleTodoList(todoDB))
+	// NOTE Go seems to not allow "POST /todo" (returning 405) investigate
 	mux.HandleFunc("POST /todo/{$}", handleNewTodo(todoDB))
 	mux.HandleFunc("GET /todo/{todoID}", handleTodo(todoDB))
 	mux.HandleFunc("PUT /todo/{todoID}/body", handleUpdateBody(todoDB))
