@@ -1,0 +1,53 @@
+# https://taskfile.dev
+
+version: "3"
+
+tasks:
+  default:
+    desc: List tasks
+    cmds:
+      - task --list-all
+    silent: true
+
+  cache:
+    desc: Cache dependencies
+    cmds:
+      - go mod tidy
+    dir: ./gateway
+    silent: true
+
+  test:
+    desc: Go testing
+    dir: "{{.USER_WORKING_DIR}}"
+    deps:
+      - cache
+    cmds:
+      - go test -v -count=1 {{.CLI_ARGS}}
+    silent: true
+
+  down:
+    desc: terminate application
+    cmds:
+      - docker-compose down --volumes
+    silent: true
+
+  up:
+    desc: run application
+    deps:
+      - down
+      - cache
+    cmds:
+      - docker-compose up -d --build --force-recreate
+    silent: true
+
+  k6:
+    desc: Load testing
+    cmds:
+      - docker compose run k6 run /src/{{.CLI_ARGS}}
+    silent: true
+
+  logs:
+    desc: List logs
+    cmds:
+      - docker-compose logs -f
+    silent: true
